@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Design Interview: The 14 Pillars — Rayane Aboud</title>
+  <meta name="description" content="What I've learned after taking a few system design courses: the 14 pillars that structure any serious system design process.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rayaneaboud.dev/blogs/system-design-14-pillars/">
+  <meta property="og:title" content="System Design Interview: The 14 Pillars">
+  <meta property="og:description" content="What I've learned after taking a few system design courses: the 14 pillars that structure any serious system design process.">
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <div class="container">
+
+    <nav>
+      <a class="nav-logo" href="../../index.html">Rayane Aboud</a>
+      <ul class="nav-links">
+        <li><a href="../../blog.html" class="active">Writing</a></li>
+        <li><a href="../../projects.html">Projects</a></li>
+        <li><a href="../../research.html">Research</a></li>
+        <li><a href="https://github.com/Rayane-Aboud" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="mailto:rayane.aboud02@gmail.com">Contact</a></li>
+      </ul>
+    </nav>
+
+    <main>
+
+      <div class="post-header">
+        <h1>System Design Interview: What I've Learned After Taking a Few Courses</h1>
+        <div class="post-meta">
+          <span>June 2026</span>
+          <span>·</span>
+          <span>System Design</span>
+        </div>
+      </div>
+
+      <div class="article-body">
+
+        <p>
+          One of the major benefits of being introduced to system design is that it has allowed me
+          to rethink the problems I face when building new software for a client. Below are the
+          14 pillars I now use to structure any system design process, whether in an interview or
+          on a real project.
+        </p>
+
+        <h2>1. Problem Definition and Scope</h2>
+        <p>
+          This is where you receive the client's problem, identify the system actors, and define
+          the in-scope and out-of-scope requirements. It ensures you don't over-engineer and can
+          stay focused on the core features.
+        </p>
+        <blockquote>
+          <p><strong>Pro-tip:</strong> On a real project, divide the system into major features at
+          this stage and re-apply the 14 pillars by defining each feature's separate problem space.</p>
+        </blockquote>
+
+        <h2>2. Functional Requirements</h2>
+        <p>
+          Take the problem, the actors, and the in-scope items to define the sub-features that
+          <strong>must</strong> be included to make the system work end-to-end, as well as the
+          <strong>nice-to-have</strong> features that serve as good additions.
+        </p>
+
+        <h2>3. Non-Functional Requirements (NFRs)</h2>
+        <p>
+          NFRs are the unstated requirements, not explicitly requested by the client, but crucial
+          for the system to perform well in production. They revolve around 6 axes:
+        </p>
+        <ul>
+          <li>
+            <strong>Performance &amp; Scalability:</strong> keeping the system fast as users grow.
+            Performance is speed for a single user (latency, response time).
+            Scalability is handling volume (throughput, 10× more users without crashing).
+          </li>
+          <li>
+            <strong>Reliability &amp; Resilience:</strong> ensuring minimal downtime,
+            proportional to the criticality of the system.
+          </li>
+          <li>
+            <strong>Maintainability &amp; Extensibility:</strong> tools to supervise and monitor
+            every time a new feature, bottleneck, or update is introduced.
+          </li>
+          <li>
+            <strong>Security &amp; Compliance:</strong> preventing unauthorized access, ensuring
+            correct behavior, and providing proper fallback mechanisms.
+          </li>
+          <li>
+            <strong>Portability &amp; Interoperability:</strong> running on multiple architectures
+            and remaining backward-compatible from a hardware perspective.
+          </li>
+          <li>
+            <strong>Usability:</strong> ease of navigation for end users (UI/UX) and developers (APIs) alike.
+          </li>
+        </ul>
+        <blockquote>
+          <p><strong>Mnemonic:</strong> <em>Please Remember My Secure Portable UI</em>
+          (Performance, Reliability, Maintainability, Security, Portability, Usability).</p>
+        </blockquote>
+
+        <h2>4. Back-of-the-Envelope Estimation</h2>
+        <p>
+          Estimate the data traffic entering and leaving the system, the expected latency,
+          throughput, and storage requirements for both disk and RAM. This depends entirely on
+          the use case: a video platform like YouTube needs high storage capacity and low streaming
+          latency, while a URL shortener is compute-light but read-heavy.
+        </p>
+
+        <h2>5. API Design</h2>
+        <p>
+          Define the inputs and outputs of the functions that must be implemented to achieve your
+          goals. These could be HTTP endpoints or standard function signatures. This is the first
+          concrete implementation layer of your functional requirements.
+        </p>
+
+        <h2>6. High-Level Architecture</h2>
+        <p>
+          Show the main actors and their interactions with system components that contribute to both
+          functional and non-functional requirements: load balancers, microservice boundaries,
+          database types, message queues, CDN nodes, and hardware topology.
+        </p>
+
+        <h2>7. Data Model</h2>
+        <p>
+          Define how data looks in storage. This is especially important for SQL databases where
+          you map out tables, relationships, and schemas, but equally relevant for document stores
+          where you design your embedding and denormalization strategy up front.
+        </p>
+
+        <h2>8. Core Flows End-to-End</h2>
+        <p>
+          Trace the traversal of data through the system for each trigger, caused by an actor
+          action or a cron job. List all paths: the happy path, edge cases, and failure scenarios.
+          This is where paper designs get stress-tested.
+        </p>
+
+        <h2>9. Caching and Read Performance</h2>
+        <p>
+          Technologies used to fulfill non-functional requirements around latency. This includes
+          infrastructure-level CDNs and in-memory caches like Redis to accelerate data retrieval
+          and reduce pressure on primary storage.
+        </p>
+
+        <h2>10. Storage, Indexing, and Media</h2>
+        <p>
+          Choose the right technology for fast access to persistent storage based on the nature
+          of what you store and how quickly you need to access it, including full-text search
+          indexes, blob storage for media, and tiered archival strategies.
+        </p>
+
+        <h2>11. Scaling Strategies</h2>
+        <p>
+          What happens when you go beyond the estimated traffic, data volume, or user count?
+          This step decides whether to change the technology stack or apply specific engineering
+          concepts: sharding, horizontal scaling, read replicas, or event-driven decoupling.
+        </p>
+
+        <h2>12. Reliability, Failure Handling, and Backpressure</h2>
+        <p>
+          How does the system behave under pressure, undefined inputs, or cascading errors?
+          This covers circuit breakers, retry policies, dead-letter queues, and backpressure
+          mechanisms that prevent a slow component from taking down the entire system.
+        </p>
+
+        <h2>13. Security, Privacy, and Abuse</h2>
+        <p>
+          Harden the obvious attack surfaces first: authentication, authorization, rate limiting,
+          input validation. Design the system so security improvements can be layered on
+          iteratively as new features are added.
+        </p>
+
+        <h2>14. Bottlenecks and Next Steps</h2>
+        <p>
+          Step back and ask: where are the weak points? Were the communication protocols the
+          right choice? Where does the system break first under load? This pillar is about
+          continuous evaluation.
+        </p>
+
+      </div>
+
+      <div class="post-footer">
+        <p style="margin-bottom: 16px; font-size: 0.85rem; color: var(--muted);">
+          <strong>References</strong><br>
+          <a href="https://www.designgurus.io/" target="_blank" rel="noopener">DesignGurus</a>, Grokking the System Design Interview<br>
+          <a href="https://www.youtube.com/@jordanhasnolife5163" target="_blank" rel="noopener">Jordan has no life</a>, System Design on YouTube
+        </p>
+        <a href="../../blog.html">← Back to all posts</a>
+      </div>
+
+    </main>
+
+    <footer>
+      <span>© 2026 Rayane Aboud</span>
+      <span><a href="mailto:rayane.aboud02@gmail.com">rayane.aboud02@gmail.com</a></span>
+    </footer>
+
+  </div>
+</body>
+</html>
