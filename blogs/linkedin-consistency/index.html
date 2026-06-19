@@ -7,7 +7,7 @@
   <meta name="description" content="A profile picture update on LinkedIn revealed eventual consistency, CDC, and global database replication in action. Here is what was happening under the hood.">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://rayaneaboud.dev/blogs/linkedin-consistency/">
-  <meta property="og:title" content="System Design in the Wild: The LinkedIn Profile Picture Glitch">
+  <meta property="og:title" content="System Design Observation: The LinkedIn Profile Picture Glitch">
   <meta property="og:description" content="A profile picture update on LinkedIn revealed eventual consistency, CDC, and global database replication in action.">
   <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../../css/style.css">
@@ -54,11 +54,11 @@
         </p>
 
         <figure>
-          <img src="assets/00-evnentual-consistency.png"
+          <img src="assets/00-eventual-consistency.png"
                alt="Diagram showing eventual consistency across distributed nodes"
                style="border: 1px solid var(--border); border-radius: 4px;">
           <figcaption>
-            Multiple databases.. eventually data sync 
+            Multiple databases... eventually data syncs 
           </figcaption>
         </figure>
 
@@ -78,7 +78,7 @@
           running invisibly in the background.
         </p>
 
-        <h2>1. The Upload</h2>
+        <h3>1. The Upload</h3>
 
         <p>
           <strong>What I saw:</strong> I upload an image. The system processes it for a moment,
@@ -102,7 +102,7 @@
           </figcaption>
         </figure>
 
-        <h2>2. The Multi-Avatar Illusion</h2>
+        <h3>2. The Multi-Avatar Illusion</h3>
 
         <p>
           <strong>What I saw:</strong> I go back to my home feed. My avatar appears in three places:
@@ -119,7 +119,7 @@
         </p>
 
         <figure>
-          <img src="assets/02-evnetual-consistency.png"
+          <img src="assets/02-eventual-consistency.png"
                alt="Multiple microservices reading from different database replicas at different points in time"
                style="border: 1px solid var(--border); border-radius: 4px;">
           <figcaption>
@@ -127,7 +127,7 @@
           </figcaption>
         </figure>
 
-        <h2>3. The Clueless Friend</h2>
+        <h3>3. The Clueless Friend</h3>
 
         <p>
           <strong>What I saw:</strong> I immediately check my profile on a friend's phone on the
@@ -140,7 +140,7 @@
           replication pipeline and has not reached that region yet.
         </p>
 
-        <h2>4. The Confirmation Email</h2>
+        <h3>4. The Confirmation Email</h3>
 
         <p>
           <strong>What I saw:</strong> A few minutes later, an email arrives: "Your profile picture
@@ -150,9 +150,9 @@
         <p>
           <strong>Under the hood:</strong> The notification service knew the right moment to send
           that email because it tracks what are called <strong>transaction log offsets</strong>.
-          As each regional database successfully applies the update, it broadcasts a small
-          acknowledgment back to a central coordinator. Once the coordinator confirms that all
-          regions have caught up, it publishes a message to the notification service queue,
+          As downstream databases successfully apply the update, they broadcast small
+          acknowledgments back to a central coordinator. Once the core infrastructure confirms 
+          sufficient replication consensus, it publishes a message to the notification service queue,
           which triggers the email. The email is not just a courtesy: it is the system's way
           of telling you that global consistency has been reached.
         </p>
