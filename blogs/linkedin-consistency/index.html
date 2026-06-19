@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Design Observation: The LinkedIn Profile Picture Glitch — Rayane Aboud</title>
+  <meta name="description" content="A profile picture update on LinkedIn revealed eventual consistency, CDC, and global database replication in action. Here is what was happening under the hood.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rayaneaboud.dev/blogs/linkedin-consistency/">
+  <meta property="og:title" content="System Design in the Wild: The LinkedIn Profile Picture Glitch">
+  <meta property="og:description" content="A profile picture update on LinkedIn revealed eventual consistency, CDC, and global database replication in action.">
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <div class="container">
+
+    <nav>
+      <a class="nav-logo" href="../../index.html">Rayane Aboud</a>
+      <ul class="nav-links">
+        <li><a href="../../blog.html" class="active">Writing</a></li>
+        <li><a href="../../projects.html">Projects</a></li>
+        <li><a href="../../research.html">Research</a></li>
+        <li><a href="https://github.com/Rayane-Aboud" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="mailto:rayane.aboud02@gmail.com">Contact</a></li>
+      </ul>
+    </nav>
+
+    <main>
+
+      <div class="post-header">
+        <h1>System Design Observation: The LinkedIn Profile Picture Glitch</h1>
+        <div class="post-meta">
+          <span>June 2026</span>
+          <span>·</span>
+          <span>System Design</span>
+        </div>
+      </div>
+
+      <div class="article-body">
+
+        <p>
+          The other day I was updating my profile picture on LinkedIn when I noticed a strange
+          visual glitch. Some pictures on the page took a few seconds before they synchronized
+          with the others. A few avatars were already showing the new photo. Others still showed
+          the old one. The page looked like it was disagreeing with itself.
+        </p>
+
+        <p>
+          If you talk to senior engineers, they will call this <strong>eventual consistency</strong>:
+          a deliberate architectural trade-off in large-scale distributed systems. This article
+          breaks down exactly what I observed, what was happening under the hood, and how
+          LinkedIn engineered this behavior on purpose.
+        </p>
+
+        <figure>
+          <img src="assets/00-evnentual-consistency.png"
+               alt="Diagram showing eventual consistency across distributed nodes"
+               style="border: 1px solid var(--border); border-radius: 4px;">
+          <figcaption>
+            Multiple databases.. eventually data sync 
+          </figcaption>
+        </figure>
+
+        <p>
+          Large-scale systems cannot throw all of their data into a single massive database.
+          Instead, they shard it, replicate it, and distribute it across the globe for lower
+          latency and better availability. To serve content instantly, they cache uploaded photos
+          in CDNs close to the user's geographic location. But this article is not about CDN
+          caching. It is about how data consistency is managed across sharded, replicated databases
+          sitting in completely different geographical locations.
+        </p>
+
+        <h2>The Breakdown: What I Saw vs. What Actually Happened</h2>
+
+        <p>
+          Here is the exact sequence of events from my side, contrasted with the infrastructure
+          running invisibly in the background.
+        </p>
+
+        <h2>1. The Upload</h2>
+
+        <p>
+          <strong>What I saw:</strong> I upload an image. The system processes it for a moment,
+          updates the avatar right in front of me, and says: "Your profile picture has been updated."
+        </p>
+
+        <p>
+          <strong>Under the hood:</strong> The upload mechanism is worth a separate post on its own.
+          In short, it asynchronously streams the binary data directly to an isolated storage bucket,
+          freeing up the main application API. The moment it says "Success", it means the new image
+          metadata (the path to the photo) has been written to the primary database shard closest
+          to my geographic location. That single write is what triggers everything that follows.
+        </p>
+
+        <figure>
+          <img src="assets/01-eventual-consistency.png"
+               alt="Upload flow from client to primary database shard"
+               style="border: 1px solid var(--border); border-radius: 4px;">
+          <figcaption>
+            The user upload stream hitting isolated storage while metadata updates the local primary shard.
+          </figcaption>
+        </figure>
+
+        <h2>2. The Multi-Avatar Illusion</h2>
+
+        <p>
+          <strong>What I saw:</strong> I go back to my home feed. My avatar appears in three places:
+          the sidebar, the top navigation bar, and on a post. Only one of them has changed.
+        </p>
+
+        <p>
+          <strong>Under the hood:</strong> The home feed is powered by multiple independent
+          microservices. Each microservice reads from its own local cache or database replica.
+          If the feed service has already picked up the update but the navigation bar service
+          is still catching up, you see a hybrid state simultaneously on the same page. This
+          is the classic visual artifact of an eventually consistent system: not broken, just
+          mid-propagation.
+        </p>
+
+        <figure>
+          <img src="assets/02-evnetual-consistency.png"
+               alt="Multiple microservices reading from different database replicas at different points in time"
+               style="border: 1px solid var(--border); border-radius: 4px;">
+          <figcaption>
+            Independent microservices serving a hybrid UI state due to minor cross-replica latency.
+          </figcaption>
+        </figure>
+
+        <h2>3. The Clueless Friend</h2>
+
+        <p>
+          <strong>What I saw:</strong> I immediately check my profile on a friend's phone on the
+          other side of the world. It still shows my old picture.
+        </p>
+
+        <p>
+          <strong>Under the hood:</strong> Their phone is hitting a regional data center in a
+          completely different geography. The update event is still traveling through the global
+          replication pipeline and has not reached that region yet.
+        </p>
+
+        <h2>4. The Confirmation Email</h2>
+
+        <p>
+          <strong>What I saw:</strong> A few minutes later, an email arrives: "Your profile picture
+          has been updated." Everything is now consistent on both devices.
+        </p>
+
+        <p>
+          <strong>Under the hood:</strong> The notification service knew the right moment to send
+          that email because it tracks what are called <strong>transaction log offsets</strong>.
+          As each regional database successfully applies the update, it broadcasts a small
+          acknowledgment back to a central coordinator. Once the coordinator confirms that all
+          regions have caught up, it publishes a message to the notification service queue,
+          which triggers the email. The email is not just a courtesy: it is the system's way
+          of telling you that global consistency has been reached.
+        </p>
+
+        <h2>Enter Change Data Capture</h2>
+
+        <p>
+          So how does LinkedIn orchestrate this global propagation? They use a pattern called
+          <strong>Change Data Capture (CDC)</strong> backed by event streaming.
+        </p>
+
+        <p>
+          The naive approach would be to write application code that manually updates the primary
+          database and simultaneously sends a message to Kafka. The problem is that these are two
+          separate operations: if the application crashes between them, you get a desync. One
+          succeeded, the other did not, and your data is now inconsistent with no easy way to
+          recover.
+        </p>
+
+        <p>
+          CDC solves this by letting the database itself act as the event source. The moment the
+          primary database registers the new profile picture write, an automated CDC tool tails
+          the database's internal transaction log. It captures the raw change and publishes it as
+          an event into a Kafka topic. From there, Kafka streams the update across the globe to
+          all downstream replicas, caches, and search indexes.
+        </p>
+
+        <p>
+          LinkedIn actually built and open-sourced their own CDC system for this purpose, called
+          <a href="https://github.com/linkedin/databus" target="_blank" rel="noopener">Databus</a>.
+          The key insight behind Databus is that the transaction log is the ground truth. If you
+          can reliably tail it, you never miss an update.
+        </p>
+
+        <figure>
+          <img src="assets/03-eventual-consistency.svg"
+               alt="CDC pipeline: primary database to transaction log to Databus to Kafka to global replicas"
+               style="border: 1px solid var(--border); border-radius: 4px;">
+          <figcaption>
+            The complete Change Data Capture and event streaming pipeline infrastructure blueprint.
+          </figcaption>
+        </figure>
+
+        <h2>Why LinkedIn Designed it This Way</h2>
+
+        <p>
+          Engineering is about trade-offs. When designing at this scale, LinkedIn had to look
+          at their usage patterns and make distinct architectural choices.
+        </p>
+
+        <p>
+          Because of their massive global user base, their data must be horizontally
+          <strong>sharded and replicated</strong> across multiple data centers. There is simply
+          no alternative at that scale: a single database cannot absorb the write volume or
+          deliver acceptable latency to every region on the planet.
+        </p>
+
+        <p>
+          From there, the question becomes <strong>speed vs. accuracy</strong>. Do we need strong,
+          immediate consistency for a profile picture? Absolutely not. A delay of a few seconds
+          or minutes won't break the core utility of the app, and it definitely isn't worth
+          slowing down the platform's overall performance. LinkedIn deliberately chose
+          high availability over instant consistency.
+        </p>
+
+        <p>
+          The last piece is <strong>user experience</strong>. Rejecting a profile update because
+          a database node in Europe is temporarily lagging would be a terrible experience.
+          Instead, they accept the operation immediately, handle the distribution asynchronously
+          via CDC, and gracefully notify the user by email once the global ecosystem is
+          completely settled.
+        </p>
+
+        <p>
+          The glitch I noticed was not a bug. It was the system working exactly as designed,
+          making the right trade-off for its scale.
+        </p>
+
+      </div>
+
+      <div class="post-footer">
+        <a href="../../blog.html">← Back to all posts</a>
+      </div>
+
+    </main>
+
+    <footer>
+      <span>© 2026 Rayane Aboud</span>
+      <span><a href="mailto:rayane.aboud02@gmail.com">rayane.aboud02@gmail.com</a></span>
+    </footer>
+
+  </div>
+</body>
+</html>
